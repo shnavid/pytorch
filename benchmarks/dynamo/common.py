@@ -311,6 +311,11 @@ CI_SKIP_DYNAMIC_BATCH_ONLY = {
     "dlrm",
 }
 
+CI_SKIP_SINGLE_PROCESS_ONLY = {
+    # Distributed models to run in --multiprocess-models-only mode
+    "simple_gpt"
+}
+
 DO_NOT_CAST_INPUTS = {"stable_diffusion"}
 
 
@@ -1797,18 +1802,6 @@ class BenchmarkRunner:
             equal_nan = False
         return equal_nan
 
-    def iter_models(self, args):
-        for model_name in self.iter_model_names(args):
-            for device in args.devices:
-                try:
-                    yield self.load_model(
-                        device,
-                        model_name,
-                        batch_size=args.batch_size,
-                    )
-                except NotImplementedError:
-                    continue  # bad benchmark implementation
-
     def deepcopy_model(self, model):
         return copy.deepcopy(model)
 
@@ -2626,6 +2619,11 @@ def parse_args(args=None):
         help="Create n processes based on the number of devices (distributed use case).",
     )
     parser.add_argument(
+        "--multiprocess-models-only",
+        action="store_true",
+        help="Only run multiprocess models. Implies --multiprocess.",
+    )
+    parser.add_argument(
         "--ddp",
         action="store_true",
         help="Wraps model in DDP before running it, and uses dynamo DDPOptmizer (graph breaks) by default.",
@@ -3004,6 +3002,9 @@ def main(runner, original_dir=None):
             raise RuntimeError(
                 f"--diff-branch: current branch is same as {args.diff_branch} branch, what are you diffing?"
             )
+
+    if args.multiprocess_models_only:
+        args.multiprocess = True
 
     if args.multiprocess:
         # NB: Do NOT query device count before CUDA initialization; we're
@@ -3528,7 +3529,12 @@ def run(runner, args, original_dir=None):
             os.unlink(output_filename)
         if original_dir:
             os.chdir(original_dir)
-        model_names = list(runner.iter_model_names(args))
+
+        model_names = set(runner.iter_model_names(args))
+        if args.multiprocess_models_only:
+            print("--multiprocess-models-only flag is set, skipping single process models")
+            model_names = model_names.intersection(CI_SKIP_SINGLE_PROCESS_ONLY)
+
         nmodels = len(model_names)
         for i, name in enumerate(model_names):
             current_name = name
