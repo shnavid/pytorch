@@ -587,6 +587,11 @@ class HFPretrainedConfigVariable(VariableTracker):
     def call_hasattr(self, tx, name: str) -> "VariableTracker":
         return variables.ConstantVariable(hasattr(self.obj, name)).add_options(self)
 
+    def var_setattr(self, tx, name, val):
+        assert name.is_python_constant() and val.is_python_constant()
+        setattr(self.obj, name.as_python_constant(), val.as_python_constant())
+        return val
+
 
 def _dictvariable_flatten(d: ConstDictVariable) -> Tuple[List[Any], pytree.Context]:
     if d.python_type() is not dict:
