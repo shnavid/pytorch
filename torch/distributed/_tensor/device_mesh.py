@@ -66,6 +66,16 @@ class _MeshEnv:
     def get_parent_mesh(self, device_mesh: "DeviceMesh") -> Optional["DeviceMesh"]:
         return self.child_to_parent_mapping.get(device_mesh, None)
 
+    @staticmethod
+    def num_devices_per_host(device_type: str) -> int:
+        return _get_device_handle(device_type).device_count()
+
+    @staticmethod
+    def num_hosts(device_type: str) -> int:
+        # ProcessGroup can't tell us this info so we have to infer it, assume
+        # homogeneous hardware for now
+        return get_world_size() // _MeshEnv.num_devices_per_host(device_type)
+
 
 mesh_resources: _MeshEnv = _MeshEnv()
 
