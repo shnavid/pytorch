@@ -208,6 +208,13 @@ class OpSchema:
             and isinstance(elem_type.getElementType(), torch.TensorType)
         )
 
+    def return_type_tuple_tensors(self) -> bool:
+        return_types = self.op._schema.returns
+        # all dispatch ops only return Tensor or Tuple[Tensor], so this check if enough
+        return len(return_types) > 1 and isinstance(
+            return_types[0].type, torch.TensorType
+        )
+
     def __hash__(self) -> int:
         # Only hash args and kwargs that op indicates to hash
         if not self.schema_info:
