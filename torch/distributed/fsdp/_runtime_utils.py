@@ -253,6 +253,12 @@ def _share_state_and_init_handle_attrs(
                 f"FSDP state missing attribute {attr_name}",
             )
             attr_name_to_values[attr_name].add(getattr(fsdp_state, attr_name))
+        handle = fsdp_state._handle
+        if handle:
+            handle.init_wait_system(
+                root_state._free_event_queue,
+                root_state.limit_all_gathers,
+            )
         if fsdp_state is root_state:
             continue
         # Relax the assert for non-root FSDP instances in case the nested
@@ -271,13 +277,8 @@ def _share_state_and_init_handle_attrs(
         fsdp_state._exec_order_data = root_state._exec_order_data
         fsdp_state._free_event_queue = root_state._free_event_queue
         fsdp_state._device_mesh = root_state._device_mesh
-        handle = fsdp_state._handle
         if handle:
             handle.init_flat_param_attributes()
-            handle.init_wait_system(
-                root_state._free_event_queue,
-                root_state.limit_all_gathers,
-            )
 
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
