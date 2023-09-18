@@ -2234,9 +2234,9 @@ class InliningInstructionTranslator(InstructionTranslatorBase):
         except NotImplementedError:
             pass  # closures
 
-        if skipfiles.check(
-            func.get_filename()
-        ) and not skipfiles.is_torch_inline_allowed(func.get_filename()):
+        result = skipfiles.check(func.get_filename())
+        if result.skipped:
+            log.debug("SKIPPING %s, reason: %s", func.get_function(), result.reason)
             from torch._dynamo.variables.misc import (
                 produce_trampoline_autograd_apply,
                 produce_trampoline_autograd_bwd,
@@ -2262,6 +2262,8 @@ class InliningInstructionTranslator(InstructionTranslatorBase):
             unimplemented(
                 f"call torch._dynamo.disable() wrapped function {func.get_function()}"
             )
+        else:
+            log.debug("INLINING %s, reason: %s", func.get_function(), result.reason)
 
     @staticmethod
     def inline_call_(
