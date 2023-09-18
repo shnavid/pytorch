@@ -296,7 +296,7 @@ def out_wrapper(*out_names: str, exact_dtype: bool = False):
     return _out_wrapper
 
 
-def maybe_remove_out_wrapper(fn: Callable):
+def _maybe_remove_out_wrapper(fn: Callable):
     return inspect.unwrap(
         fn,
         stop=lambda f: not hasattr(f, "_torch_decompositions_out_wrapper"),
