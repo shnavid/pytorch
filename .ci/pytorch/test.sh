@@ -287,11 +287,10 @@ test_inductor_distributed() {
   python test/run_test.py --include distributed/test_dynamo_distributed distributed/test_inductor_collectives --verbose
   assert_git_not_dirty
 
-  checkout_install_torchbench
-
   install_torchaudio cuda
   install_torchtext
   install_torchvision
+  checkout_install_torchbench
 
   PYTHONPATH=$(pwd)/torchbench test_dynamo_benchmark torchbench "$id" --multiprocess-models-only
   assert_git_not_dirty
