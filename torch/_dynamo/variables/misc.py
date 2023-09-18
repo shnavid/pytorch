@@ -645,9 +645,10 @@ class PythonModuleVariable(VariableTracker):
 
 
 class SkipFilesVariable(VariableTracker):
-    def __init__(self, value, **kwargs):
+    def __init__(self, value, reason, **kwargs):
         super().__init__(**kwargs)
         self.value = value
+        self.reason = reason
 
     def python_type(self):
         return type(self.value)
@@ -830,7 +831,7 @@ class SkipFilesVariable(VariableTracker):
             except TypeError:
                 path = f"Builtin {self.value.__name__}"
             unimplemented(
-                f"call_function {self.value.__qualname__} in skip_files {path}"
+                f"'call_function {self.value.__qualname__} in skip_files {path}, skip reason: {self.reason}'"
             )
 
 
