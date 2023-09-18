@@ -1802,6 +1802,18 @@ class BenchmarkRunner:
             equal_nan = False
         return equal_nan
 
+    def iter_models(self, args):
+        for model_name in self.iter_model_names(args):
+            for device in args.devices:
+                try:
+                    yield self.load_model(
+                        device,
+                        model_name,
+                        batch_size=args.batch_size,
+                    )
+                except NotImplementedError:
+                    continue  # bad benchmark implementation
+
     def deepcopy_model(self, model):
         return copy.deepcopy(model)
 
