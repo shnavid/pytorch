@@ -3533,7 +3533,9 @@ def run(runner, args, original_dir=None):
 
         model_names = set(runner.iter_model_names(args))
         if args.multiprocess_models_only:
-            print("--multiprocess-models-only flag is set, skipping single process models")
+            print(
+                "--multiprocess-models-only flag is set, skipping single process models"
+            )
             model_names = model_names.intersection(CI_SKIP_SINGLE_PROCESS_ONLY)
 
         nmodels = len(model_names)
