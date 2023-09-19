@@ -141,27 +141,43 @@ void all_types_complex_half_bfloat16_(
       [&]() { foreach_binary_op_<scalar_t, Op>(tensors, scalars); });
 }
 
-#define FOREACH_BINARY_OP_SCALARLIST(FUNCTION, NAME, OP, DIV_OP)          \
-  void foreach_tensor_##NAME##_scalarlist_kernel_cuda_(                   \
-      TensorList tensors, at::ArrayRef<Scalar> scalars) {                 \
-    check_foreach_api_restrictions(tensors, scalars);                     \
-    if (!can_use_fast_route(tensors, scalars, DIV_OP)) {                  \
-      return at::native::foreach_tensor_##NAME##_scalarlist_kernel_slow_( \
-          tensors, scalars);                                              \
-    }                                                                     \
-                                                                          \
-    FUNCTION##_<OP>(tensors, scalars);                                    \
-  }                                                                       \
-                                                                          \
-  std::vector<Tensor> foreach_tensor_##NAME##_scalarlist_kernel_cuda(     \
-      TensorList tensors, at::ArrayRef<Scalar> scalars) {                 \
-    check_foreach_api_restrictions(tensors, scalars);                     \
-    if (!can_use_fast_route(tensors, scalars, DIV_OP)) {                  \
-      return at::native::foreach_tensor_##NAME##_scalarlist_kernel_slow(  \
-          tensors, scalars);                                              \
-    }                                                                     \
-                                                                          \
-    return FUNCTION<OP>(tensors, scalars);                                \
+#define FOREACH_BINARY_OP_SCALARLIST(FUNCTION, NAME, OP, DIV_OP)            \
+  void foreach_tensor_##NAME##_scalarlist_kernel_cuda_(                     \
+      TensorList tensors, at::ArrayRef<Scalar> scalars) {                   \
+    check_foreach_api_restrictions(tensors, scalars);                       \
+    std::pair<bool, bool> p = can_use_fast_route(tensors, scalars, DIV_OP); \
+    bool can_use_fast_route = p.first;                                      \
+    bool has_empty_tensors = p.second;                                      \
+    if (!can_use_fast_route) {                                              \
+      return at::native::foreach_tensor_##NAME##_scalarlist_kernel_slow_(   \
+          tensors, scalars);                                                \
+    }                                                                       \
+                                                                            \
+    if (has_empty_tensors) {                                                \
+      tensors = filter_out_empty_tensors({tensors})[0];                     \
+    }                                                                       \
+                                                                            \
+    FUNCTION##_<OP>(tensors, scalars);                                      \
+  }                                                                         \
+                                                                            \
+  std::vector<Tensor> foreach_tensor_##NAME##_scalarlist_kernel_cuda(       \
+      TensorList tensors, at::ArrayRef<Scalar> scalars) {                   \
+    check_foreach_api_restrictions(tensors, scalars);                       \
+    std::pair<bool, bool> p = can_use_fast_route(tensors, scalars, DIV_OP); \
+    bool can_use_fast_route = p.first;                                      \
+    bool has_empty_tensors = p.second;                                      \
+    if (!can_use_fast_route) {                                              \
+      return at::native::foreach_tensor_##NAME##_scalarlist_kernel_slow(    \
+          tensors, scalars);                                                \
+    }                                                                       \
+                                                                            \
+    if (has_empty_tensors) {                                                \
+      auto p = filter_out_empty_tensors({tensors}, scalars);                \
+      tensors = p.first[0];                                                 \
+      scalars = p.second;                                                   \
+    }                                                                       \
+                                                                            \
+    return FUNCTION<OP>(tensors, scalars);                                  \
   }
 
 FOREACH_BINARY_OP_SCALARLIST(
@@ -197,9 +213,18 @@ void foreach_tensor_sub_scalarlist_kernel_cuda_(
     sub_check(tensors[i], scalars[i]);
   }
 
-  if (!can_use_fast_route({tensors}, scalars)) {
+  std::pair<bool, bool> p = can_use_fast_route({tensors}, scalars);
+  bool can_use_fast_route = p.first;
+  bool has_empty_tensors = p.second;
+  if (!can_use_fast_route) {
     return at::native::foreach_tensor_sub_scalarlist_kernel_slow_(
         tensors, scalars);
+  }
+
+  if (has_empty_tensors) {
+    auto res = filter_out_empty_tensors({tensors}, scalars);
+    tensors = res.first[0];
+    scalars = res.second;
   }
 
   AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
@@ -219,9 +244,18 @@ std::vector<Tensor> foreach_tensor_sub_scalarlist_kernel_cuda(
     sub_check(tensors[i], scalars[i]);
   }
 
-  if (!can_use_fast_route({tensors}, scalars)) {
+  std::pair<bool, bool> p = can_use_fast_route({tensors}, scalars);
+  bool can_use_fast_route = p.first;
+  bool has_empty_tensors = p.second;
+  if (!can_use_fast_route) {
     return at::native::foreach_tensor_sub_scalarlist_kernel_slow(
         tensors, scalars);
+  }
+
+  if (has_empty_tensors) {
+    auto res = filter_out_empty_tensors({tensors}, scalars);
+    tensors = res.first[0];
+    scalars = res.second;
   }
 
   return AT_DISPATCH_ALL_TYPES_AND_COMPLEX_AND3(
