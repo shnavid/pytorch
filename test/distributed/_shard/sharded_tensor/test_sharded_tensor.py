@@ -244,6 +244,32 @@ class TestShardTensor(ShardedTensorTestBase):
     @with_comms(init_rpc=False)
     @skip_if_lt_x_gpu(4)
     @requires_nccl()
+    def test_shard_tensor_with_empty_shard(self):
+        spec = ChunkShardingSpec(
+            dim=0,
+            placements=[
+                "rank:0/cuda:0",
+                "rank:1/cuda:1",
+                "rank:2/cuda:2",
+                "rank:3/cuda:3",
+            ],
+        )
+        tensor = torch.rand(9, 12).cuda(self.rank)
+        st = _shard_tensor(tensor, spec)
+
+        # Verify.
+        self.assertTrue(isinstance(st, sharded_tensor.ShardedTensor))
+        local_shard = st.local_tensor()
+        self.assertEqual(1, len(st.local_shards()))
+        if dist.get_rank() < 3:
+            self.assertEqual(torch.Size([3, 12]), local_shard.size())
+            self.assertEqual(torch.narrow(tensor, 0, 3 * self.rank, 3), local_shard)
+        else:
+            self.assertEqual(torch.Size([0, 12]), local_shard.size())
+
+    @with_comms(init_rpc=False)
+    @skip_if_lt_x_gpu(4)
+    @requires_nccl()
     def test_shard_tensor_errors(self):
         spec = ChunkShardingSpec(
             dim=0,
