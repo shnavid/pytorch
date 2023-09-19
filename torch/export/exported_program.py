@@ -205,11 +205,11 @@ class ExportedProgram:
     """
     Virtual class to represent package of a program from :func:`export`.
 
-    It typically contains all the state related to the resulting graph exported,
-    such as state_dict containing and various metadata.
+    It typically contains all the state related to the resulting exported graph,
+    such as state_dict and various metadata.
 
-    You can call an DynamoExportedProgram like the original callable traced by
-    :func:`export` with the same calling convention.
+    You can call an :class:`ExportedProgram` like the original callable traced
+    by :func:`export` with the same calling convention.
     """
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
@@ -217,10 +217,11 @@ class ExportedProgram:
 
 
 class DynamoExportedProgram(ExportedProgram):
-    """
-    Package of a program from :func:`export`. It contains
-    an :class:`torch.fx.Graph` that represents Tensor computation, a state_dict containing
-    tensor values of all lifted parameters and buffers, and various metadata.
+    """Package of a program from :func:`export`.
+
+    It contains an :class:`torch.fx.Graph` that represents Tensor computation,
+    a state_dict containing tensor values of all lifted parameters and buffers,
+    and various metadata.
 
     You can call an DynamoExportedProgram like the original callable traced by
     :func:`export` with the same calling convention.

@@ -585,7 +585,7 @@ class LargeProtobufONNXExportedProgramSerializer:
 
 
 class ONNXExportedProgram(torch.export.ExportedProgram):
-    """An in-memory representation of a PyTorch model that has been exported to ONNX."""
+    """ONNX exported program from :func:`export`."""
 
     _model_proto: Final[onnx.ModelProto]  # type: ignore[name-defined]
     _input_adapter: Final[io_adapter.InputAdapter]
