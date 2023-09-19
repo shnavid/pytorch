@@ -293,6 +293,7 @@ class WrapperCodeGen(CodeGen):
         self.first_device_guard = True
         self.supports_intermediate_hooks = True
         self.expr_printer = pexpr
+        self.arg_var_id = count()
 
         self.write_header()
         self.write_prefix()
@@ -774,7 +775,22 @@ class WrapperCodeGen(CodeGen):
                 stream_ptr = f"c_void_p({stream_name})"
                 self.writeline(f"{name}.{name}({call_args_str}, {stream_ptr})")
         else:
-            self.writeline(self.wrap_kernel_call(name, call_args))
+            if V.graph.aot_mode and config.aot_inductor.abi_compatible:
+                from .cpp import DTYPE_TO_CPP
+
+                new_args = []
+                for arg in call_args:
+                    var_name = f"var_{next(self.arg_var_id)}"
+                    self.writeline(f"void *{var_name}{self.ending}")
+                    self.writeline(
+                        f"AOTI_TORCH_ERROR_CHECK(aoti_torch_get_data_ptr(&{var_name}, {arg}.get()));"
+                    )
+                    dtype = V.graph.get_dtype(arg)
+                    cpp_dtype = DTYPE_TO_CPP[dtype]
+                    new_args.append(f"({cpp_dtype}*)({var_name})")
+                self.writeline(self.wrap_kernel_call(name, new_args))
+            else:
+                self.writeline(self.wrap_kernel_call(name, call_args))
 
     def writeline(self, line):
         self.lines.append(line)
@@ -1825,7 +1841,6 @@ class CudaWrapperCodeGen(CppWrapperCodeGen):
 
     def __init__(self):
         super().__init__()
-        self.arg_var_id = count()
         self.grid_id = count()
         self.cuda = True
 
