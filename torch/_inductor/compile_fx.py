@@ -976,7 +976,15 @@ def compile_fx(
                     if node.op == "placeholder"
                 ]
                 if all(v is not None for v in fake_inputs):
-                    inputs_ = fake_inputs
+                    # fake_inputs has the device recorded during tracing, which could be
+                    # different from the one provided in example_inputs
+                    # we fix this by moving fake_inputs to the device used by example_inputs
+                    inputs_ = [
+                        fake_input.to(example_input.device)
+                        for example_input, fake_input in zip(
+                            example_inputs_, fake_inputs
+                        )
+                    ]
             return compile_fx(
                 model_,
                 inputs_,
