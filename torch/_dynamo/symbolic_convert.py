@@ -2234,7 +2234,7 @@ class InliningInstructionTranslator(InstructionTranslatorBase):
         except NotImplementedError:
             pass  # closures
 
-        result = skipfiles.check(func.get_filename(), allow_module=True)
+        result = skipfiles.check(func.get_filename(), allow_torch=True)
         if result.skipped:
             from torch._dynamo.variables.misc import (
                 produce_trampoline_autograd_apply,
@@ -2252,8 +2252,7 @@ class InliningInstructionTranslator(InstructionTranslatorBase):
                 # Known sound
                 return skipfiles.SkipResult(False, "allowlist in dynamo known function")
             unimplemented(
-                # pylint: disable=line-too-long
-                f"'inline in skipfiles: {func.fn.__qualname__}  | {func.get_name()} {func.get_filename()}, skip reason: {result.reason}'"
+                f"'inline in skipfiles: {func.fn.__qualname__}  | {func.get_name()} {func.get_filename()}, skip reason: {result.reason}'"  # pylint: disable=line-too-long
             )
 
         if isinstance(func, UserFunctionVariable) and inspect.getattr_static(
