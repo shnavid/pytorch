@@ -824,6 +824,7 @@ class TritonKernel(Kernel):
         self.last_usage = set()
 
         self.persistent_reduction = self.should_use_persistent_reduction()
+        print(f"{self.persistent_reduction=}", flush=True)
         self.no_x_dim = (
             self.reduction_hint == ReductionHint.INNER
             and self.persistent_reduction
@@ -886,6 +887,7 @@ class TritonKernel(Kernel):
                     names[i], self.numels[i], names[i][0], pid_idx, self, pid_cache
                 )
             )
+        print(f"{self.range_trees=}", flush=True)
         for tree in self.range_trees:
             # reduction indexing goes inside a loop
             if not tree.is_loop():
@@ -1856,6 +1858,8 @@ class TritonKernel(Kernel):
 
         code = IndentedBuffer()
 
+        print(f"{self.numels=}, {self=}", flush=True)
+
         size_hints = [
             next_power_of_2(V.graph.sizevars.size_hint(numel)) for numel in self.numels
         ]
@@ -1957,7 +1961,8 @@ class TritonKernel(Kernel):
                     size_hints={size_hints!r},
                     reduction_hint={reduction_hint},
                     filename=__file__,
-                    meta={triton_meta!r}
+                    meta={triton_meta!r},
+                    min_elem_per_thread={self.min_elem_per_thread}
                 )
                 @triton.jit
             """
@@ -2237,6 +2242,7 @@ class TritonScheduling(BaseScheduling):
     can_fuse_horizontal = can_fuse
 
     def generate_node_schedule(self, nodes, numel, rnumel):
+        print(f"{[n.group for n in nodes]=}, {numel=}, {rnumel=}", flush=True)
         node_schedule = []
         current_loop_writes = set()
         is_current_reductions = set()
