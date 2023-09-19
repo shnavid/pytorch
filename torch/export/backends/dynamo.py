@@ -5,9 +5,13 @@ from collections import OrderedDict
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
+
+import torch._dynamo
 import torch.fx
 
 import torch.utils._pytree as pytree
+from torch._dynamo.exc import UserError, UserErrorType
+from torch._export import DECOMP_TABLE, DEFAULT_EXPORT_DYNAMO_CONFIG
 from torch._export.exported_program import (
     _process_constraints,
     CallSpec,
@@ -148,7 +152,7 @@ def _safe_to_skip_dynamo(gm: torch.fx.GraphModule):
     return False
 
 
-@register_backend
+@register_backend  # type: ignore[arg-type]  # TODO: Fix backend type hint
 def dynamo(
     f: Callable,
     f_args: Tuple[Any, ...],
@@ -170,9 +174,6 @@ def dynamo(
         preserve_module_call_signature: A list of submodule paths for which the original
             calling conventions are preserved as metadata.
     """
-    import torch._dynamo  # TODO: Do the lazy import thing?
-    from torch._dynamo.exc import UserError, UserErrorType
-    from torch._export import DECOMP_TABLE, DEFAULT_EXPORT_DYNAMO_CONFIG
 
     constraints = constraints or []
     f_kwargs = f_kwargs or {}

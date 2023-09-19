@@ -5,12 +5,12 @@ import importlib
 import os
 import sys
 import types
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
-_BACKENDS: Dict[str, Callable] = dict()
 ExportFn = Callable[
-    [Callable, List[Any], Dict[Any, Any], Dict[Any, Any]], "ExportedProgram"  # type: ignore[name-defined]
+    [Callable, List[Any], Optional[Dict[str, Any]], Optional[Any]], "ExportedProgram"  # type: ignore[name-defined]
 ]
+_BACKENDS: Dict[str, ExportFn] = dict()
 
 
 class InvalidTorchExportBackend(RuntimeError):
@@ -34,8 +34,9 @@ def lookup_backend(export_fn):
 
 
 def register_backend(
-    export_fn: Optional[Callable] = None,
+    export_fn: Optional[ExportFn] = None,
     name: Optional[str] = None,
+    tags: Sequence[str] = (),
 ):
     """
     Decorator to add a given export function to the registry to allow calling
@@ -46,23 +47,39 @@ def register_backend(
     Args:
         export_fn: Callable taking a :class:`torch.nn.Module` model, inputs and options
         name: Optional name, defaults to `export_fn.__name__`
+        tags: Optional set of string tags to categorize backend with
     """
     if export_fn is None:
         # @register_backend(name="") syntax
-        return functools.partial(register_backend, name=name)
+        return functools.partial(register_backend, name=name, tags=tags)
     assert callable(export_fn)
     name = name or export_fn.__name__
     assert name not in _BACKENDS, f"duplicate backend name: {name}"
     _BACKENDS[name] = export_fn
+    export_fn._tags = tuple(tags)  # type: ignore[attr-defined]
     return export_fn
 
 
-def list_backends() -> List[str]:
+register_debug_backend = functools.partial(register_backend, tags=("debug",))
+register_experimental_backend = functools.partial(
+    register_backend, tags=("experimental",)
+)
+
+
+def list_backends(exclude_tags=("debug", "experimental")) -> List[str]:
     """
     Return valid strings that can be passed to `torch.export(..., backend="name")`.
     """
     _lazy_import()
-    return sorted([name for name, _ in _BACKENDS.items()])
+    exclude_tags = set(exclude_tags or ())
+
+    return sorted(
+        [
+            name
+            for name, backend in _BACKENDS.items()
+            if not exclude_tags.intersection(backend._tags)  # type: ignore[attr-defined]
+        ]
+    )
 
 
 @functools.lru_cache(None)

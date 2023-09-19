@@ -12,7 +12,12 @@ import torch
 import torch.fx._pytree as fx_pytree
 import torch.utils._pytree as pytree
 
-from torch.export.backends.registry import list_backends, register_backend
+from torch.export.backends.registry import (
+    list_backends,
+    register_backend,
+    register_debug_backend,
+    register_experimental_backend,
+)
 from torch.fx._compatibility import compatibility
 
 from torch.fx.experimental.symbolic_shapes import StrictMinMaxConstraint
@@ -45,6 +50,8 @@ __all__ = [
     "list_backends",
     "load",
     "register_backend",
+    "register_debug_backend",
+    "register_experimental_backend",
     "register_dataclass",
     "save",
 ]
