@@ -4,8 +4,8 @@ import itertools
 import sympy
 
 import torch._inductor.virtualized as virtualized
-import torch._inductor.ir as ir
-from torch._inductor.utils import sympy_str, sympy_symbol, IndentedBuffer
+from torch._inductor.scheduler import BaseSchedulerNode
+from torch._inductor.utils import sympy_str, IndentedBuffer
 
 
 def _arg_str(a):
@@ -13,31 +13,26 @@ def _arg_str(a):
         return "sympy_expr('" + sympy_str(a) + "')"
     return str(a)
 
-@dataclasses.dataclass
-class EVTGeneratorState:
-    # Name of the GEMM / Conv output node name, which can
-    # be fetched from the accumulator instead of loading it
-    # from global memory
-    accumulator_node_name : str = None
-
-_evt_generator_state = EVTGeneratorState()
-
-
-class CutlassEpilogueFormatterHandler():
+class CutlassEVTEpilogueTypeFormatter():
     """
     Replacement for V.KernelFormatterHandler
     """
 
-    def __init__(self):
+    def __init__(self, accumulator_node_name):
+        self.accumulator_node_name = accumulator_node_name
         self.output = IndentedBuffer(0)
         self.var_counter = 0
+        self.aliases = dict()
 
     @staticmethod
-    def ir_to_string(ir_fn, index, rindex=None):
+    def ir_to_evt_string(template_node : ir.Node, evt_type_name, epilogue_nodes : List[ir.Node], index, rindex=None):
         args = [index, rindex] if rindex is not None else [index]
-        formatter = CutlassEpilogueFormatterHandler()
+        formatter = CutlassEVTEpilogueTypeFormatter(template_node.name)
+
         with virtualized.V.set_ops_handler(formatter):
-            result = ir_fn(*args)
+            for node in epilogue_nodes:
+                result = node.ir_fn(*args)
+                formatter.aliases[node.name] = result
             return formatter.getvalue(result)
 
     def __getattr__(self, name):
@@ -58,10 +53,12 @@ class CutlassEpilogueFormatterHandler():
             raise NotImplementedError(name)
 
     def load(self, name, index_expr):
-        if name==_evt_generator_state.accumulator_node_name:
+        if name==self.accumulator_node_name:
             return f"cutlass::epilogue::fusion::Sm90AccFetch /* :={name} */"
+        elif name in self.aliases:
+            return self.aliases[name]
         else:
-            return f"cutlass::epilogue::fusion::Sm90SrcFetch; /* :={name} */"
+            return f"cutlass::epilogue::fusion::Sm90SrcFetch /* :={name} */"
 
     def constant(self, value, dtype):
         if str(dtype) in ('torch.float16', 'torch.float32'):
@@ -86,3 +83,6 @@ class CutlassEpilogueFormatterHandler():
         self.output.writeline(f"using CustomEVT = EVT_expr_{self.var_counter};")
         return self.output.getvalue()
 
+
+#
+# Copied and modified from https://github.com/NVIDIA/cutlass/blob/main/tools/library/scripts/gemm_operation.py

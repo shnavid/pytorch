@@ -1,9 +1,11 @@
 from unittest.mock import patch
 
 from . import cutlass_epilogue_gen
+from .cuda_template import CUDATemplate
 from .cutlass_epilogue_gen import CutlassEpilogueFormatterHandler
 from ... import config
 from ...codecache import code_hash, get_path
+from ...ir import CUDATemplateBuffer
 from ...utils import get_fused_kernel_name, get_kernel_metadata
 from ...virtualized import V
 
@@ -53,18 +55,14 @@ class CUDAScheduling(TritonScheduling):
         """
         _, (numel, rnumel) = template_node.group
         assert rnumel == 1
+        assert isinstance(template_node.node, CUDATemplateBuffer)
         kernel, render = template_node.node.make_kernel_render(template_node.node)
         epilogue_init_list = []
         epilogue_param_list = []
         with ((kernel)):
             for node in [template_node, *epilogue_nodes]:
                 node.mark_run()
-            src_code = render()  # TODO: Add epilogue nodes to render
-            with patch.object(cutlass_epilogue_gen._evt_generator_state, 'accumulator_node_name', template_node.node.name),\
-                 patch.object(V, "KernelFormatterHandler", CutlassEpilogueFormatterHandler):
-                for node in epilogue_nodes:
-                    epilogue_init = node.node.data.inner_fn_str()
-                    epilogue_init_list.append(epilogue_init)
+            src_code = render(epilogue_nodes=epilogue_nodes)  # TODO: Add epilogue nodes to render
 
         src_code_with_epilogue = src_code.replace("#EPILOGUE_DECLARATION#", "\n".join(epilogue_init_list))
         with V.set_kernel_handler(kernel):

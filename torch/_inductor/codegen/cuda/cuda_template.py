@@ -36,6 +36,7 @@ class CUDATemplate(KernelTemplate):
         self.input_reorder = input_reorder
 
     def generate(self, **kwargs) -> CUDATemplateCaller:
+        # this gets passed an op instance via kwargs
         kernel_name = f"cuda_{self.name}"
         with patch.object(
             V.graph, "get_dtype", self._fake_get_dtype(self.output_node)
@@ -89,6 +90,8 @@ class CUDATemplate(KernelTemplate):
                 output_node=output_node,
                 **kwargs,
             )
+            can_fuse_node = functools.partial(self.can_fuse_node, output_node)
+            fuse_node = functools.partial(self.fuse_node, output_node)
             return kernel, render
 
         return CUDATemplateCaller(
@@ -98,6 +101,8 @@ class CUDATemplate(KernelTemplate):
             self.output_node.get_layout(),
             make_kernel_render,
             bmreq,
+            can_fuse_node,
+            fuse_node
         )
 
     def header(self) -> IndentedBuffer:
@@ -137,18 +142,37 @@ class CUDATemplate(KernelTemplate):
     def render(self, **kwargs) -> str:
         raise NotImplementedError
 
+    def can_fuse_node(self, node: IRNode) -> bool:
+        return False
+
+    def fuse_node(self, node: IRNode):
+        raise NotImplementedError
+
 
 class CUTLASSTemplate(CUDATemplate):
     def header(self) -> IndentedBuffer:
         res = super().header()
         res.splice(
-            """
+            """ 
+                #include "cute/tensor.hpp"
                 #include "cutlass/cutlass.h"
                 #include "cutlass/numeric_types.h"
-                #include "cutlass/util/host_tensor.h"
-                #include "cutlass/util/reference/host/tensor_fill.h"
-                #include "cutlass/util/reference/device/tensor_fill.h"
                 #include "cutlass/util/device_memory.h"
+                #include "cutlass/tensor_ref.h"
+                #include "cutlass/epilogue/collective/default_epilogue.hpp"
+                #include "cutlass/epilogue/thread/linear_combination.h"
+                #include "cutlass/gemm/dispatch_policy.hpp"
+                #include "cutlass/gemm/collective/collective_builder.hpp"
+                #include "cutlass/epilogue/collective/collective_builder.hpp"
+                #include "cutlass/gemm/device/gemm_universal_adapter.h"
+                #include "cutlass/gemm/kernel/gemm_universal.hpp"
+                #include "cutlass/gemm/kernel/tile_scheduler.hpp"
+                
+                #include "cutlass/util/distribution.h"
+                #include "cutlass/util/packed_stride.hpp"
+                #include "cutlass/util/tensor_view_io.h"
+                
+                
             """
         )
         return res
@@ -157,6 +181,8 @@ class CUTLASSTemplate(CUDATemplate):
         res = super().globals()
         res.splice(
             """
+                using namespace cute;
+                
                 #define CUTLASS_CHECK(status)                                                      \\
                 {                                                                                  \\
                   cutlass::Status error = status;                                                  \\

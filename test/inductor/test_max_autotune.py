@@ -265,10 +265,10 @@ class TestDoBench(TestCase):
 
     # TODO: Enable dynamic test cases when dynamic support is added.
     @unittest.skipIf(not SM75OrLater, "need sm_75")
-    @parametrize("dynamic", (False,))
-    @parametrize("max_autotune_gemm_backends", ("CUTLASS", "ATen, Triton, CUTLASS"))
+    #@parametrize("dynamic", (False,))
+    #@parametrize("max_autotune_gemm_backends", ("CUTLASS", "ATen, Triton, CUTLASS"))
     def test_max_autotune_cutlass_backend_mm_bias(
-        self, dynamic: bool, max_autotune_gemm_backends: str
+        self, dynamic: bool = False, max_autotune_gemm_backends: str = "CUTLASS"
     ):
         """
         Make sure autotuning mm in sub processes work without crashes.

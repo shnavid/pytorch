@@ -771,6 +771,12 @@ class FusedSchedulerNode(BaseSchedulerNode):
     def is_template(self):
         return any(x.is_template() for x in self.snodes)
 
+    def get_template_node(self):
+        for node in self.snodes:
+            if node.is_template():
+                return node
+        return None
+
     def get_device(self):
         return self.group[0]
 
@@ -821,7 +827,8 @@ class CUDASchedulerNode(SchedulerNode):
         if node.get_device() != self.get_device():
             return False
         if isinstance(node.node, ComputedBuffer) and isinstance(node.node.data, ir.Pointwise):
-            return True
+            return self.node.can_fuse_epilogue(node.node)
+
         return False
 
 class ForeachKernelSchedulerNode(FusedSchedulerNode):
